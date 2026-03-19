@@ -33,9 +33,13 @@ I'm building **SEC Insight** — a full-stack financial RAG system that lets use
 - Phase 5 — Deploy + ship
 
 ## Current status
-**Phase:** [UPDATE THIS]
-**Last completed:** [UPDATE THIS]
-**Working on:** [UPDATE THIS]
+**Phase:** 1
+**Last completed:** Learn before building (concepts)
+**Working on:** 
+Completed all 6 foundation concepts:
+RAG pipeline, embeddings + Chroma, SEC EDGAR structure,
+hybrid search + RRF, cross-encoder reranking, small-to-big retrieval.
+Ready to learn Phase 1 concepts before touching code.
 
 ## Repo
 https://github.com/[your-username]/sec-insight
