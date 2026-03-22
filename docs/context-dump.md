@@ -33,15 +33,18 @@ I'm building **SEC Insight** — a full-stack financial RAG system that lets use
 - Phase 5 — Deploy + ship
 
 ## Current status
-**Phase:** 1 — Ingestion pipeline
-**Last completed:** Tasks 1 + 2 — `edgar_fetcher.py` and `parser.py`
-**Working on:** Task 3 — `chunker.py` (recursive chunker with overlap)
+**Phase:** 1 → 2 transition
+**Last completed:** Phase 1 — Ingestion pipeline ✓
 
-Completed so far:
-- `edgar_fetcher.py` — async ticker → CIK → filing URL lookup, smoke-tested against AAPL 10-K ✓
-- `parser.py` — `partition_html` parsing with SEC-compliant httpx download, element type summary ✓
+Completed files:
+- `edgar_fetcher.py` — async ticker → CIK → filing URL lookup ✓
+- `parser.py` — table-aware HTML parsing via Unstructured ✓
+- `chunker.py` — recursive prose + table chunker, small-to-big, tiktoken ✓
+- `indexer.py` — OpenAI embeddings + Chroma upsert, idempotent write path ✓
+- `vector_store.py` — skipped; indexer.py covers the full Phase 1 spec
 
-Next: write `chunker.py` from scratch (512 token chunks, 50 token overlap, recursive split on paragraphs → sentences → words) before using Claude Code on it.
+Next: learn Phase 2 concepts (cosine similarity, RRF, cross-encoder reranking,
+SSE streaming) before building retrieval engine.
 
 ## Repo
 https://github.com/[your-username]/sec-insight
