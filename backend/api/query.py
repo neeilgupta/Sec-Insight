@@ -31,12 +31,7 @@ from backend.retrieval.reranker import rerank
 
 load_dotenv()
 
-# ---------------------------------------------------------------------------
-# Session memory — plain dict fallback (session.py not yet implemented)
-# from backend.api.session import SessionStore
-# ---------------------------------------------------------------------------
-
-_sessions: dict[str, list[dict]] = {}
+from backend.api.session import session_manager  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # Module-level singletons
@@ -48,7 +43,6 @@ logging.basicConfig(level=logging.INFO)
 _openai = AsyncOpenAI()
 
 LLM_MODEL = "gpt-4o"
-MAX_HISTORY = 6  # messages (3 turns)
 
 # ---------------------------------------------------------------------------
 # FastAPI app + CORS
@@ -152,7 +146,7 @@ async def _stream(
         f"Excerpts:\n{context}"
     )
 
-    history = _sessions.get(session_id, [])[-MAX_HISTORY:]
+    history = session_manager.get_history(session_id)
     messages = [{"role": "system", "content": system_prompt}]
     messages.extend(history)
     messages.append({"role": "user", "content": query})
@@ -187,10 +181,8 @@ async def _stream(
     # 6. Update session history
     # ------------------------------------------------------------------
     if session_id:
-        hist = _sessions.get(session_id, [])
-        hist.append({"role": "user", "content": query})
-        hist.append({"role": "assistant", "content": "".join(full_reply)})
-        _sessions[session_id] = hist[-MAX_HISTORY:]
+        await session_manager.add_message(session_id, "user", query)
+        await session_manager.add_message(session_id, "assistant", "".join(full_reply))
 
     # ------------------------------------------------------------------
     # 7. Done
@@ -224,6 +216,7 @@ if __name__ == "__main__":
         "What were Apple's total net sales in fiscal 2024?",
         "What is the gross margin percentage for fiscal 2024?",
         "How did revenue from Services compare to prior year?",
+        "What were the main risk factors Apple highlighted in the filing?",
     ]
 
     async def _run_query(query: str) -> None:
