@@ -33,14 +33,27 @@ I'm building **SEC Insight** — a full-stack financial RAG system that lets use
 - Phase 5 — Deploy + ship
 
 ## Current status
-**Phase:** 2 — Retrieval Engine ✓ complete, moving to Phase 3
-**Last completed:** Phase 1 ✓, Phase 2 ✓ (all components done)
+**Phase:** 3 — Frontend in progress (Task 1 Vue chat UI ✓, pipeline.py next)
+**Last completed:** Phase 1 ✓, Phase 2 ✓, Phase 3 Task 1 ✓
 
-### Phase 1 — Ingestion pipeline ✓
-- `backend/ingestion/edgar_fetcher.py` — async ticker → CIK → filing URL lookup
+### Phase 1 — Ingestion pipeline ✓ (components only — pipeline.py orchestrator pending)
+- `backend/ingestion/edgar_fetcher.py` — async ticker → CIK → filing URL lookup; `get_filing_url()` returns URL only; `get_filing_info()` (to be added) returns `(url, filing_date)` tuple
 - `backend/ingestion/parser.py` — table-aware HTML parsing via Unstructured
 - `backend/ingestion/chunker.py` — recursive prose + table chunker, small-to-big, tiktoken (50-token overlap)
 - `backend/ingestion/indexer.py` — OpenAI embeddings + Chroma upsert, idempotent write path; stores `parent_text` inline in Chroma metadata
+- `backend/ingestion/pipeline.py` — **blank stub**; needs to orchestrate: `get_filing_info → parse_filing → chunk_elements → index_chunks`; CLI: `python -m backend.ingestion.pipeline AAPL 10-K`
+
+### Phase 3 — Frontend + source highlighting (in progress)
+- `frontend/` — Vue 3 + Vite + TypeScript scaffold ✓
+- `frontend/src/composables/useSSE.ts` — `fetch` + `ReadableStream` SSE reader (NOT EventSource — endpoint is POST); parses `sources`/`token`/`done` events; buffers incomplete lines across reads ✓
+- `frontend/src/components/TickerInput.vue` — ticker + filing type selector + question textarea; emits `submit(query, collectionName)`; assembles `TICKER_FILING_DATE` collection name ✓
+- `frontend/src/components/ChatWindow.vue` — scrollable message list; auto-scrolls on new content ✓
+- `frontend/src/components/MessageBubble.vue` — user/assistant bubbles; numbered citation badges; badge click emits `highlightSource(index)` ✓
+- `frontend/src/components/StreamingResponse.vue` — live token display with blinking CSS cursor ✓
+- `frontend/src/components/SourcePanel.vue` — right panel 40% width; source cards with section heading + rerank score; highlighted card gets indigo left border ✓
+- `frontend/src/App.vue` — root layout; session ID via `crypto.randomUUID()`; all state lives here ✓
+- `frontend/src/components/ComparisonView.vue` — **blank stub** (Phase 3 Task 3)
+- `backend/api/structured.py` — **blank stub** (Phase 3 Task 4)
 
 ### Phase 2 — Retrieval engine ✓
 - `backend/retrieval/hybrid_search.py` — BM25 + Chroma vector search merged with RRF (k=60); fetches all child chunks for BM25 at query time; returns top-20 as `List[dict]` with keys `chunk_id, text, metadata, rrf_score` ✓
@@ -58,6 +71,9 @@ I'm building **SEC Insight** — a full-stack financial RAG system that lets use
 - SSE format: each event is `data: {json}\n\n`; `sources` event fires before LLM stream starts; `done` event fires after session history is written
 - Session compression fires inside `add_message` after appending (not lazily at read time), keeping `get_history` synchronous; Turn 4 onward triggers two GPT-4o compression calls per turn (one for user msg, one for assistant msg) but both happen after `done` is yielded so they don't block the stream
 - Latency profile (observed): hybrid_search ~150ms warm (1100ms cold start from CrossEncoder load), rerank ~75ms, LLM first token ~400–1200ms (dominant bottleneck, network-bound)
+- Current Chroma data is **synthetic fixture only** (hardcoded AAPL test data from `indexer.py` `__main__`); pipeline.py needed to index real filings
+- Frontend vite dev proxy: `/api/*` → `http://localhost:8000/*` (strips `/api` prefix); frontend never hardcodes backend URL
+- `SEC_USER_AGENT` env var required for EDGAR requests (format: `"Name email@domain.com"`); already in `.env.example`
 
 ## Repo
 https://github.com/[your-username]/sec-insight
