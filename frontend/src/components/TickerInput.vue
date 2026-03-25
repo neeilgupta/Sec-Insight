@@ -1,27 +1,38 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, onMounted } from 'vue'
 
 const props = defineProps<{ isStreaming: boolean }>()
 const emit = defineEmits<{
   submit: [query: string, collectionName: string]
 }>()
 
-const ticker = ref('')
-const filingType = ref('10-K')
+const collections = ref<string[]>([])
+const selectedCollection = ref('')
 const queryText = ref('')
+const isLoading = ref(true)
 
-// Hardcoded to the most recently indexed filing date for v1
-const FILING_DATE = '2024-09-28'
+onMounted(async () => {
+  try {
+    const resp = await fetch('/api/collections')
+    const data = await resp.json()
+    collections.value = data.collections
+    if (collections.value.length > 0) {
+      selectedCollection.value = collections.value[0]
+    }
+  } finally {
+    isLoading.value = false
+  }
+})
 
-const collectionName = computed(
-  () => `${ticker.value.toUpperCase()}_${filingType.value}_${FILING_DATE}`,
-)
+function formatCollection(name: string): string {
+  // "AAPL_10-K_2024-09-28" → "AAPL · 10-K · 2024-09-28"
+  return name.replace(/_/g, ' · ')
+}
 
 function handleSubmit() {
   const q = queryText.value.trim()
-  const t = ticker.value.trim()
-  if (!q || !t || props.isStreaming) return
-  emit('submit', q, collectionName.value)
+  if (!q || !selectedCollection.value || props.isStreaming) return
+  emit('submit', q, selectedCollection.value)
   queryText.value = ''
 }
 
@@ -36,16 +47,18 @@ function handleKeydown(e: KeyboardEvent) {
 <template>
   <div class="ticker-input">
     <div class="ticker-row">
-      <input
-        v-model="ticker"
-        class="ticker-field"
-        placeholder="Ticker (e.g. AAPL)"
-        :disabled="isStreaming"
-        maxlength="10"
-      />
-      <select v-model="filingType" class="filing-select" :disabled="isStreaming">
-        <option>10-K</option>
-        <option>10-Q</option>
+      <select
+        v-model="selectedCollection"
+        class="collection-select"
+        :disabled="isStreaming || isLoading"
+      >
+        <option v-if="isLoading" value="" disabled>Loading filings…</option>
+        <option v-else-if="collections.length === 0" value="" disabled>No filings indexed yet</option>
+        <option
+          v-for="col in collections"
+          :key="col"
+          :value="col"
+        >{{ formatCollection(col) }}</option>
       </select>
     </div>
     <div class="query-row">
@@ -57,7 +70,11 @@ function handleKeydown(e: KeyboardEvent) {
         :disabled="isStreaming"
         @keydown="handleKeydown"
       />
-      <button class="submit-btn" :disabled="isStreaming || !queryText.trim() || !ticker.trim()" @click="handleSubmit">
+      <button
+        class="submit-btn"
+        :disabled="isStreaming || !queryText.trim() || !selectedCollection"
+        @click="handleSubmit"
+      >
         {{ isStreaming ? '…' : 'Ask' }}
       </button>
     </div>
@@ -79,20 +96,18 @@ function handleKeydown(e: KeyboardEvent) {
   gap: 8px;
 }
 
-.ticker-field {
-  width: 140px;
+.collection-select {
+  flex: 1;
   padding: 6px 10px;
   border: 1px solid #d1d5db;
   border-radius: 6px;
   font-size: 14px;
-  text-transform: uppercase;
 }
 
-.filing-select {
-  padding: 6px 10px;
-  border: 1px solid #d1d5db;
-  border-radius: 6px;
-  font-size: 14px;
+.collection-select:focus {
+  outline: none;
+  border-color: #6366f1;
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.15);
 }
 
 .query-row {
@@ -111,8 +126,7 @@ function handleKeydown(e: KeyboardEvent) {
   font-family: inherit;
 }
 
-.query-field:focus,
-.ticker-field:focus {
+.query-field:focus {
   outline: none;
   border-color: #6366f1;
   box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.15);
