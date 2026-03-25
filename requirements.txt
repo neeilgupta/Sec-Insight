@@ -7,3 +7,5 @@ fastapi
 uvicorn
 rank-bm25
 sentence-transformers
+pytest
+pytest-asyncio
