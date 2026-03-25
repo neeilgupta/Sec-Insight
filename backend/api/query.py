@@ -19,6 +19,8 @@ import logging
 import time
 from typing import AsyncGenerator
 
+import chromadb
+
 from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -43,6 +45,7 @@ logging.basicConfig(level=logging.INFO)
 _openai = AsyncOpenAI()
 
 LLM_MODEL = "gpt-4o"
+CHROMA_PATH = "./chroma_db"
 
 # ---------------------------------------------------------------------------
 # FastAPI app + CORS
@@ -193,6 +196,14 @@ async def _stream(
 # ---------------------------------------------------------------------------
 # Endpoint
 # ---------------------------------------------------------------------------
+
+
+@app.get("/collections")
+def collections_endpoint() -> dict:
+    """Return sorted list of all indexed Chroma collection names."""
+    db = chromadb.PersistentClient(path=CHROMA_PATH)
+    names = sorted(col.name for col in db.list_collections())
+    return {"collections": names}
 
 
 @app.post("/query")
