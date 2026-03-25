@@ -1,0 +1,266 @@
+"""
+FastAPI RAG endpoint — POST /query
+
+Pipeline
+--------
+session history → hybrid_search → rerank → build prompt → stream GPT-4o
+
+SSE event types
+---------------
+sources  {"type":"sources","chunks":[{chunk_id, text (≤300 chars), metadata, rerank_score}]}
+token    {"type":"token","content":"..."}
+done     {"type":"done"}
+"""
+
+from __future__ import annotations
+
+import json
+import logging
+import time
+from typing import AsyncGenerator
+
+from dotenv import load_dotenv
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
+from openai import AsyncOpenAI
+from pydantic import BaseModel
+
+from backend.retrieval.hybrid_search import hybrid_search
+from backend.retrieval.reranker import rerank
+
+load_dotenv()
+
+# ---------------------------------------------------------------------------
+# Session memory — plain dict fallback (session.py not yet implemented)
+# from backend.api.session import SessionStore
+# ---------------------------------------------------------------------------
+
+_sessions: dict[str, list[dict]] = {}
+
+# ---------------------------------------------------------------------------
+# Module-level singletons
+# ---------------------------------------------------------------------------
+
+logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO)
+
+_openai = AsyncOpenAI()
+
+LLM_MODEL = "gpt-4o"
+MAX_HISTORY = 6  # messages (3 turns)
+
+# ---------------------------------------------------------------------------
+# FastAPI app + CORS
+# ---------------------------------------------------------------------------
+
+app = FastAPI(title="SEC Insight API")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# ---------------------------------------------------------------------------
+# Request model
+# ---------------------------------------------------------------------------
+
+
+class QueryRequest(BaseModel):
+    query: str
+    collection_name: str  # e.g. "AAPL_10-K_2024-09-28"
+    session_id: str = ""
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+
+def _parse_collection(collection_name: str) -> tuple[str, str, str]:
+    """Return (company, filing_type, year) from a collection name string.
+
+    Expected format: "{TICKER}_{FILING_TYPE}_{DATE}"
+    Example: "AAPL_10-K_2024-09-28" → ("AAPL", "10-K", "2024")
+    """
+    parts = collection_name.split("_", 2)
+    if len(parts) < 3:
+        return collection_name, "", ""
+    company = parts[0]
+    filing_type = parts[1]
+    year = parts[2][:4]
+    return company, filing_type, year
+
+
+def _sse(payload: dict) -> str:
+    return f"data: {json.dumps(payload)}\n\n"
+
+
+# ---------------------------------------------------------------------------
+# Streaming generator
+# ---------------------------------------------------------------------------
+
+
+async def _stream(
+    query: str,
+    collection_name: str,
+    session_id: str,
+) -> AsyncGenerator[str, None]:
+    # ------------------------------------------------------------------
+    # 1. Hybrid search
+    # ------------------------------------------------------------------
+    t0 = time.perf_counter()
+    candidates = hybrid_search(query, collection_name, top_k=20)
+    logger.info("[LATENCY] hybrid_search: %.0fms", (time.perf_counter() - t0) * 1000)
+
+    # ------------------------------------------------------------------
+    # 2. Rerank
+    # ------------------------------------------------------------------
+    t1 = time.perf_counter()
+    ranked = rerank(query, candidates, collection_name, top_k=5)
+    logger.info("[LATENCY] rerank: %.0fms", (time.perf_counter() - t1) * 1000)
+
+    # ------------------------------------------------------------------
+    # 3. Emit sources event (text truncated to 300 chars)
+    # ------------------------------------------------------------------
+    source_chunks = [
+        {
+            "chunk_id": r["chunk_id"],
+            "text": r["text"][:300],
+            "metadata": r["metadata"],
+            "rerank_score": r["rerank_score"],
+        }
+        for r in ranked
+    ]
+    yield _sse({"type": "sources", "chunks": source_chunks})
+
+    # ------------------------------------------------------------------
+    # 4. Build prompt
+    # ------------------------------------------------------------------
+    company, filing_type, year = _parse_collection(collection_name)
+    context = "\n\n---\n\n".join(
+        f"[{r['metadata'].get('heading', 'Unknown Section')}]\n{r['text']}"
+        for r in ranked
+    )
+
+    system_prompt = (
+        "You are a financial analyst assistant. Answer the user's question using ONLY\n"
+        "the provided excerpts from the SEC filing. If the answer is not in the excerpts,\n"
+        "say so explicitly. Always cite which section your answer comes from.\n\n"
+        f"Filing: {company} {filing_type} {year}\n"
+        f"Excerpts:\n{context}"
+    )
+
+    history = _sessions.get(session_id, [])[-MAX_HISTORY:]
+    messages = [{"role": "system", "content": system_prompt}]
+    messages.extend(history)
+    messages.append({"role": "user", "content": query})
+
+    # ------------------------------------------------------------------
+    # 5. Stream GPT-4o
+    # ------------------------------------------------------------------
+    t_llm = time.perf_counter()
+    first_token = True
+    full_reply: list[str] = []
+
+    stream = await _openai.chat.completions.create(
+        model=LLM_MODEL,
+        messages=messages,
+        stream=True,
+    )
+
+    async for chunk in stream:
+        content = chunk.choices[0].delta.content
+        if content is None:
+            continue
+        if first_token:
+            logger.info(
+                "[LATENCY] LLM first token: %.0fms",
+                (time.perf_counter() - t_llm) * 1000,
+            )
+            first_token = False
+        full_reply.append(content)
+        yield _sse({"type": "token", "content": content})
+
+    # ------------------------------------------------------------------
+    # 6. Update session history
+    # ------------------------------------------------------------------
+    if session_id:
+        hist = _sessions.get(session_id, [])
+        hist.append({"role": "user", "content": query})
+        hist.append({"role": "assistant", "content": "".join(full_reply)})
+        _sessions[session_id] = hist[-MAX_HISTORY:]
+
+    # ------------------------------------------------------------------
+    # 7. Done
+    # ------------------------------------------------------------------
+    yield _sse({"type": "done"})
+
+
+# ---------------------------------------------------------------------------
+# Endpoint
+# ---------------------------------------------------------------------------
+
+
+@app.post("/query")
+async def query_endpoint(request: QueryRequest) -> StreamingResponse:
+    return StreamingResponse(
+        _stream(request.query, request.collection_name, request.session_id),
+        media_type="text/event-stream",
+    )
+
+
+# ---------------------------------------------------------------------------
+# Manual verification — python -m backend.api.query
+# ---------------------------------------------------------------------------
+
+if __name__ == "__main__":
+    import asyncio
+
+    COLLECTION = "AAPL_10-K_2024-09-28"
+    SESSION = "test-session"
+    QUERIES = [
+        "What were Apple's total net sales in fiscal 2024?",
+        "What is the gross margin percentage for fiscal 2024?",
+        "How did revenue from Services compare to prior year?",
+    ]
+
+    async def _run_query(query: str) -> None:
+        print(f"\n{'='*70}")
+        print(f"Query: {query}")
+        print("=" * 70)
+
+        token_count = 0
+        sources: list[dict] = []
+        reply_parts: list[str] = []
+
+        async for raw_event in _stream(query, COLLECTION, SESSION):
+            print(raw_event, end="")  # print raw SSE line as it arrives
+            # strip "data: " prefix and parse
+            line = raw_event.strip()
+            if not line.startswith("data: "):
+                continue
+            event = json.loads(line[len("data: "):])
+
+            if event["type"] == "sources":
+                sources = event["chunks"]
+            elif event["type"] == "token":
+                token_count += 1
+                reply_parts.append(event["content"])
+            # "done" needs no extra handling
+
+        full_answer = "".join(reply_parts)
+
+        print(f"\n--- SUMMARY ---")
+        print(f"Token events : {token_count}")
+        print(f"Sources ({len(sources)}):")
+        for i, s in enumerate(sources, 1):
+            print(f"  #{i}  score={s['rerank_score']:>7.4f}  chunk_id={s['chunk_id']}")
+        print(f"\nFull answer:\n{full_answer}")
+
+    async def _main() -> None:
+        for q in QUERIES:
+            await _run_query(q)
+
+    asyncio.run(_main())
