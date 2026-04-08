@@ -60,7 +60,7 @@ load_dotenv()
 logger = logging.getLogger(__name__)
 
 MAX_HISTORY = 6       # messages (3 user+assistant turns)
-SUMMARY_MODEL = "gpt-4o"
+SUMMARY_MODEL = "gpt-4o-mini"
 
 _openai = AsyncOpenAI()  # module-level singleton -- matches query.py pattern
 
