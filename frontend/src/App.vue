@@ -5,6 +5,9 @@ import { useSSE } from './composables/useSSE'
 import TickerInput from './components/TickerInput.vue'
 import ChatWindow from './components/ChatWindow.vue'
 import SourcePanel from './components/SourcePanel.vue'
+import ComparisonView from './components/ComparisonView.vue'
+
+const mode = ref<'chat' | 'compare'>('chat')
 
 const messages = ref<Message[]>([])
 const sessionId = ref('')
@@ -48,20 +51,27 @@ function handleHighlightSource(index: number) {
     <header class="app-header">
       <span class="logo">SEC Insight</span>
       <span class="subtitle">Financial filing Q&amp;A</span>
+      <button class="mode-toggle" @click="mode = mode === 'chat' ? 'compare' : 'chat'">
+        {{ mode === 'chat' ? 'Compare' : '← Chat' }}
+      </button>
     </header>
 
-    <TickerInput :is-streaming="isStreaming" @submit="handleSubmit" />
+    <template v-if="mode === 'chat'">
+      <TickerInput :is-streaming="isStreaming" @submit="handleSubmit" />
 
-    <div class="main">
-      <ChatWindow
-        ref="chatWindow"
-        :messages="messages"
-        :is-streaming="isStreaming"
-        :streaming-content="streamingContent"
-        @highlight-source="handleHighlightSource"
-      />
-      <SourcePanel :sources="sources" :highlighted="highlightedSource" />
-    </div>
+      <div class="main">
+        <ChatWindow
+          ref="chatWindow"
+          :messages="messages"
+          :is-streaming="isStreaming"
+          :streaming-content="streamingContent"
+          @highlight-source="handleHighlightSource"
+        />
+        <SourcePanel :sources="sources" :highlighted="highlightedSource" />
+      </div>
+    </template>
+
+    <ComparisonView v-else />
   </div>
 </template>
 
@@ -110,6 +120,22 @@ body {
 .subtitle {
   font-size: 13px;
   color: #9ca3af;
+}
+
+.mode-toggle {
+  margin-left: auto;
+  padding: 5px 12px;
+  background: transparent;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 13px;
+  color: #6b7280;
+  cursor: pointer;
+}
+
+.mode-toggle:hover {
+  border-color: #6366f1;
+  color: #6366f1;
 }
 
 .main {
