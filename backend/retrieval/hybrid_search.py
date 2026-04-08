@@ -12,8 +12,11 @@ hybrid_search(query, collection_name, top_k=20) -> List[dict]
 
 from __future__ import annotations
 
+import logging
 import numpy as np
 from rank_bm25 import BM25Okapi
+
+logger = logging.getLogger(__name__)
 
 import chromadb
 from dotenv import load_dotenv
@@ -69,7 +72,11 @@ def hybrid_search(
         List of dicts with keys: ``chunk_id``, ``text``, ``metadata``,
         ``rrf_score``.  Sorted by ``rrf_score`` descending.
     """
-    collection = _chroma.get_or_create_collection(name=collection_name)
+    try:
+        collection = _chroma.get_collection(name=collection_name)
+    except Exception:
+        logger.error("Collection not found in Chroma: %r", collection_name)
+        return []
 
     # ------------------------------------------------------------------
     # 1. Fetch all child chunks for BM25 index
@@ -78,6 +85,11 @@ def hybrid_search(
     all_ids: list[str] = all_data["ids"]
     all_docs: list[str] = all_data["documents"]
     all_metas: list[dict] = all_data["metadatas"]
+
+    logger.debug(
+        "hybrid_search | collection=%r | total_docs=%d | query=%r",
+        collection_name, len(all_ids), query[:80],
+    )
 
     if not all_ids:
         return []

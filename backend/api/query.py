@@ -40,7 +40,10 @@ from backend.api.session import session_manager  # noqa: E402
 # ---------------------------------------------------------------------------
 
 logger = logging.getLogger(__name__)
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.DEBUG)
+logging.getLogger("httpcore").setLevel(logging.WARNING)
+logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("openai").setLevel(logging.WARNING)
 
 _openai = AsyncOpenAI()
 
@@ -109,14 +112,19 @@ async def _stream(
     # ------------------------------------------------------------------
     t0 = time.perf_counter()
     candidates = hybrid_search(query, collection_name, top_k=20)
-    logger.info("[LATENCY] hybrid_search: %.0fms", (time.perf_counter() - t0) * 1000)
+    logger.info("[LATENCY] hybrid_search: %.0fms | results=%d", (time.perf_counter() - t0) * 1000, len(candidates))
+
+    if not candidates:
+        yield _sse({"type": "error", "message": f"No indexed data found for collection: {collection_name}"})
+        yield _sse({"type": "done"})
+        return
 
     # ------------------------------------------------------------------
     # 2. Rerank
     # ------------------------------------------------------------------
     t1 = time.perf_counter()
     ranked = rerank(query, candidates, collection_name, top_k=5)
-    logger.info("[LATENCY] rerank: %.0fms", (time.perf_counter() - t1) * 1000)
+    logger.info("[LATENCY] rerank: %.0fms | results=%d", (time.perf_counter() - t1) * 1000, len(ranked))
 
     # ------------------------------------------------------------------
     # 3. Emit sources event (text truncated to 300 chars)
