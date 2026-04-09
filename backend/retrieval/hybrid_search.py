@@ -36,6 +36,27 @@ BM25_CANDIDATES = 50
 VECTOR_CANDIDATES = 50
 RRF_K = 60
 
+# Maps lowercase query substrings → heading substrings to boost from Chroma
+_SECTION_BOOST: dict[str, str] = {
+    "risk factor": "Risk Factor",
+    "item 1a": "Risk Factor",
+    "management discussion": "Management",
+    "md&a": "Management",
+    "capital expenditure": "Capital Expenditure",
+    "liquidity": "Liquidity",
+    "properties": "Properties",
+    "legal proceeding": "Legal",
+}
+
+
+def _detect_section(query: str) -> str | None:
+    """Return a heading substring to boost if query targets a known 10-K section."""
+    q = query.lower()
+    for keyword, heading_fragment in _SECTION_BOOST.items():
+        if keyword in q:
+            return heading_fragment
+    return None
+
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -130,6 +151,33 @@ def hybrid_search(
         rrf_scores[id_] = rrf_scores.get(id_, 0.0) + 1.0 / (RRF_K + rank + 1)
     for rank, id_ in enumerate(vector_ids):
         rrf_scores[id_] = rrf_scores.get(id_, 0.0) + 1.0 / (RRF_K + rank + 1)
+
+    # ------------------------------------------------------------------
+    # 4b. Section-aware boost
+    # ------------------------------------------------------------------
+    section_fragment = _detect_section(query)
+    if section_fragment:
+        try:
+            boosted = collection.get(
+                where={"heading": {"$contains": section_fragment}},
+                include=["documents", "metadatas"],
+            )
+            boost_score = 1.0 / (RRF_K + 1)  # rank-1 equivalent
+            added = 0
+            for id_, doc, meta in zip(
+                boosted["ids"], boosted["documents"], boosted["metadatas"]
+            ):
+                if id_ not in rrf_scores:
+                    rrf_scores[id_] = boost_score
+                    id_to_doc[id_] = doc
+                    id_to_meta[id_] = meta
+                    added += 1
+            logger.info(
+                "section_boost | fragment=%r | boosted=%d new chunks",
+                section_fragment, added,
+            )
+        except Exception:
+            logger.warning("section_boost failed for fragment=%r", section_fragment)
 
     sorted_ids = sorted(rrf_scores, key=lambda x: rrf_scores[x], reverse=True)
     top_ids = sorted_ids[:top_k]
