@@ -266,6 +266,14 @@ def chunk_elements(
 
         else:
             prose_buffer.append(element)
+            # Auto-flush when buffer exceeds parent size to prevent truncation
+            buffer_tokens = sum(_count(el.get("text", "")) for el in prose_buffer)
+            if buffer_tokens >= PARENT_MAX_TOKENS:
+                new_chunks, chunk_index = _flush_prose(
+                    prose_buffer, current_heading, ticker, filing_type, filing_date, chunk_index
+                )
+                all_chunks.extend(new_chunks)
+                prose_buffer = []
 
     # Flush any remaining prose
     new_chunks, chunk_index = _flush_prose(

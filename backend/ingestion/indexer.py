@@ -8,11 +8,14 @@ all chunk metadata including parent_text — so retrieval can return full contex
 without a second lookup.
 """
 
+import logging
 import time
 
 import chromadb
 from dotenv import load_dotenv
 from openai import OpenAI
+
+logger = logging.getLogger(__name__)
 
 load_dotenv()
 
@@ -65,7 +68,12 @@ def index_chunks(
         The Chroma collection name, e.g. ``"AAPL_10K_2024-09-28"``.
     """
     collection_name = f"{ticker}_{filing_type}_{filing_date}"
-    collection = _chroma.get_or_create_collection(name=collection_name)
+    try:
+        _chroma.delete_collection(name=collection_name)
+        logger.info("Deleted existing collection %r for clean re-index", collection_name)
+    except Exception:
+        pass  # Collection didn't exist yet — that's fine
+    collection = _chroma.create_collection(name=collection_name)
 
     for i in range(0, len(chunks), BATCH_SIZE):
         batch = chunks[i : i + BATCH_SIZE]
