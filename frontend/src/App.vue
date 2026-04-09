@@ -82,17 +82,93 @@ function handleHighlightSource(index: number) {
   box-sizing: border-box;
 }
 
+:root {
+  --bg-base: #07090D;
+  --bg-surface: #0D1117;
+  --bg-elevated: #131920;
+  --bg-hover: #1C2330;
+  --border-subtle: #1A2332;
+  --border: #243044;
+  --border-strong: #3A4F66;
+
+  --amber: #F0A020;
+  --amber-dim: #B87800;
+  --amber-soft: rgba(240, 160, 32, 0.10);
+  --amber-glow: rgba(240, 160, 32, 0.20);
+
+  --indigo: #7C8EF5;
+  --indigo-soft: rgba(124, 142, 245, 0.10);
+
+  --emerald: #00C48C;
+  --emerald-soft: rgba(0, 196, 140, 0.10);
+
+  --text-primary: #E2E8F0;
+  --text-secondary: #7A8BA0;
+  --text-muted: #3D4F63;
+
+  --font-body: 'Plus Jakarta Sans', sans-serif;
+  --font-display: 'Syne', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+}
+
 body {
   margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  background: #fff;
-  color: #111827;
+  font-family: var(--font-body);
+  background: var(--bg-base);
+  color: var(--text-primary);
+  -webkit-font-smoothing: antialiased;
 }
 
 #app {
   height: 100vh;
   display: flex;
   flex-direction: column;
+}
+
+/* Global markdown styles used across MessageBubble, StreamingResponse, ComparisonView */
+.markdown-body p { margin: 0 0 8px; }
+.markdown-body p:last-child { margin-bottom: 0; }
+.markdown-body strong { font-weight: 600; color: var(--text-primary); }
+.markdown-body em { font-style: italic; }
+.markdown-body ul,
+.markdown-body ol { padding-left: 20px; margin: 6px 0; }
+.markdown-body li { margin: 3px 0; color: var(--text-secondary); }
+.markdown-body h1,
+.markdown-body h2,
+.markdown-body h3 { font-weight: 600; margin: 12px 0 4px; color: var(--text-primary); }
+.markdown-body h1 { font-size: 1.1em; }
+.markdown-body h2 { font-size: 1em; }
+.markdown-body h3 { font-size: 0.95em; }
+.markdown-body table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 10px 0;
+  font-size: 13px;
+}
+.markdown-body th,
+.markdown-body td {
+  border: 1px solid var(--border);
+  padding: 6px 10px;
+  text-align: left;
+}
+.markdown-body th {
+  background: var(--bg-elevated);
+  font-weight: 600;
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.markdown-body td { color: var(--text-secondary); }
+.markdown-body code {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-family: var(--font-mono);
+  font-size: 0.88em;
+  color: var(--amber);
 }
 </style>
 
