@@ -1,12 +1,15 @@
 <script setup lang="ts">
-defineProps<{ content: string }>()
+import { computed } from 'vue'
+import { marked } from 'marked'
+
+const props = defineProps<{ content: string }>()
+
+const rendered = computed(() => marked(props.content))
 </script>
 
 <template>
   <div class="streaming">
-    <div class="bubble assistant">
-      <span class="content">{{ content }}</span><span class="cursor" />
-    </div>
+    <div class="bubble assistant markdown-body" v-html="rendered" /><span class="cursor" />
   </div>
 </template>
 
@@ -15,6 +18,7 @@ defineProps<{ content: string }>()
   display: flex;
   justify-content: flex-start;
   padding: 4px 16px;
+  align-items: flex-end;
 }
 
 .bubble {
@@ -24,7 +28,6 @@ defineProps<{ content: string }>()
   background: #f3f4f6;
   font-size: 14px;
   line-height: 1.6;
-  white-space: pre-wrap;
   word-break: break-word;
 }
 

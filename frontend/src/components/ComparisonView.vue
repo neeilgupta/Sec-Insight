@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
+import { marked } from 'marked'
 import { useSSE } from '../composables/useSSE'
 import StreamingResponse from './StreamingResponse.vue'
 import ComparisonSourcePanel from './ComparisonSourcePanel.vue'
@@ -18,14 +19,22 @@ const completedB = ref('')
 const highlightedA = ref<number | null>(null)
 const highlightedB = ref<number | null>(null)
 
+const synthesisStreaming = ref('')
+const synthesisText = ref('')
+const isSynthesizing = ref(false)
+
 const sessionIdA = crypto.randomUUID()
 const sessionIdB = crypto.randomUUID()
 
 const isEitherStreaming = computed(() => sseA.isStreaming.value || sseB.isStreaming.value)
 
 const canSubmit = computed(
-  () => queryText.value.trim() && collectionA.value && collectionB.value && !isEitherStreaming.value,
+  () => queryText.value.trim() && collectionA.value && collectionB.value && !isEitherStreaming.value && !isSynthesizing.value,
 )
+
+const renderedA = computed(() => marked(completedA.value))
+const renderedB = computed(() => marked(completedB.value))
+const renderedSynthesis = computed(() => marked(synthesisText.value))
 
 onMounted(async () => {
   try {
@@ -43,18 +52,64 @@ function formatCollection(name: string): string {
   return name.replace(/_/g, ' · ')
 }
 
+async function streamSynthesis(query: string, answerA: string, answerB: string) {
+  if (!answerA || !answerB) return
+  isSynthesizing.value = true
+  synthesisStreaming.value = ''
+  synthesisText.value = ''
+
+  const response = await fetch('/api/compare', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      query,
+      collection_a: collectionA.value,
+      collection_b: collectionB.value,
+      answer_a: answerA,
+      answer_b: answerB,
+    }),
+  })
+
+  const reader = response.body!.getReader()
+  const decoder = new TextDecoder()
+  let buffer = ''
+
+  while (true) {
+    const { done, value } = await reader.read()
+    if (done) break
+    buffer += decoder.decode(value, { stream: true })
+    const lines = buffer.split('\n')
+    buffer = lines.pop() ?? ''
+    for (const line of lines) {
+      if (!line.startsWith('data: ')) continue
+      const event = JSON.parse(line.slice(6))
+      if (event.type === 'token') synthesisStreaming.value += event.content
+      else if (event.type === 'done') synthesisText.value = synthesisStreaming.value
+    }
+  }
+
+  isSynthesizing.value = false
+}
+
 async function handleSubmit() {
   const q = queryText.value.trim()
   if (!canSubmit.value) return
   completedA.value = ''
   completedB.value = ''
+  synthesisText.value = ''
+  synthesisStreaming.value = ''
   highlightedA.value = null
   highlightedB.value = null
   queryText.value = ''
-  await Promise.all([
-    sseA.query(q, collectionA.value, sessionIdA).then(r => { completedA.value = r }),
-    sseB.query(q, collectionB.value, sessionIdB).then(r => { completedB.value = r }),
+
+  const [a, b] = await Promise.all([
+    sseA.query(q, collectionA.value, sessionIdA),
+    sseB.query(q, collectionB.value, sessionIdB),
   ])
+  completedA.value = a
+  completedB.value = b
+
+  await streamSynthesis(q, a, b)
 }
 
 function handleKeydown(e: KeyboardEvent) {
@@ -107,11 +162,11 @@ function handleKeydown(e: KeyboardEvent) {
         class="query-field"
         placeholder="Ask the same question about both companies…"
         rows="2"
-        :disabled="isEitherStreaming"
+        :disabled="isEitherStreaming || isSynthesizing"
         @keydown="handleKeydown"
       />
       <button class="submit-btn" :disabled="!canSubmit" @click="handleSubmit">
-        {{ isEitherStreaming ? '…' : 'Ask' }}
+        {{ isEitherStreaming ? '…' : isSynthesizing ? 'Comparing…' : 'Ask' }}
       </button>
     </div>
 
@@ -124,7 +179,7 @@ function handleKeydown(e: KeyboardEvent) {
           Ask a question to compare responses.
         </div>
         <StreamingResponse v-else-if="sseA.isStreaming.value" :content="sseA.streamingContent.value" />
-        <div v-else class="response-bubble">{{ completedA }}</div>
+        <div v-else class="response-bubble markdown-body" v-html="renderedA" />
       </div>
 
       <!-- Column B -->
@@ -134,8 +189,17 @@ function handleKeydown(e: KeyboardEvent) {
           Ask a question to compare responses.
         </div>
         <StreamingResponse v-else-if="sseB.isStreaming.value" :content="sseB.streamingContent.value" />
-        <div v-else class="response-bubble">{{ completedB }}</div>
+        <div v-else class="response-bubble markdown-body" v-html="renderedB" />
       </div>
+    </div>
+
+    <!-- Comparison synthesis panel -->
+    <div v-if="synthesisText || isSynthesizing" class="synthesis-panel">
+      <div class="synthesis-label">Comparison Summary</div>
+      <div v-if="isSynthesizing" class="synthesis-body">
+        <StreamingResponse :content="synthesisStreaming" />
+      </div>
+      <div v-else class="synthesis-body markdown-body" v-html="renderedSynthesis" />
     </div>
 
     <!-- Side-by-side source panels -->
@@ -289,8 +353,66 @@ function handleKeydown(e: KeyboardEvent) {
   background: #f3f4f6;
   font-size: 14px;
   line-height: 1.6;
-  white-space: pre-wrap;
   word-break: break-word;
+}
+
+/* Synthesis panel */
+.synthesis-panel {
+  border-top: 1px solid #e5e7eb;
+  border-bottom: 1px solid #e5e7eb;
+  background: #fafafa;
+  flex-shrink: 0;
+}
+
+.synthesis-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #6366f1;
+  padding: 8px 16px 4px;
+}
+
+.synthesis-body {
+  padding: 0 16px 12px;
+  font-size: 13px;
+  line-height: 1.65;
+  color: #374151;
+}
+
+/* Markdown styles (scoped to .markdown-body) */
+.markdown-body :deep(p) { margin: 0 0 8px; }
+.markdown-body :deep(p:last-child) { margin-bottom: 0; }
+.markdown-body :deep(strong) { font-weight: 600; }
+.markdown-body :deep(em) { font-style: italic; }
+.markdown-body :deep(ul),
+.markdown-body :deep(ol) { padding-left: 20px; margin: 6px 0; }
+.markdown-body :deep(li) { margin: 2px 0; }
+.markdown-body :deep(h1),
+.markdown-body :deep(h2),
+.markdown-body :deep(h3) { font-weight: 600; margin: 10px 0 4px; }
+.markdown-body :deep(h1) { font-size: 1.1em; }
+.markdown-body :deep(h2) { font-size: 1em; }
+.markdown-body :deep(h3) { font-size: 0.95em; }
+.markdown-body :deep(table) {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 8px 0;
+  font-size: 13px;
+}
+.markdown-body :deep(th),
+.markdown-body :deep(td) {
+  border: 1px solid #d1d5db;
+  padding: 5px 10px;
+  text-align: left;
+}
+.markdown-body :deep(th) { background: #f3f4f6; font-weight: 600; }
+.markdown-body :deep(code) {
+  background: #f3f4f6;
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-family: monospace;
+  font-size: 0.9em;
 }
 
 /* Responsive — stack on mobile */
