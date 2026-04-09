@@ -73,6 +73,14 @@ class QueryRequest(BaseModel):
     session_id: str = ""
 
 
+class CompareRequest(BaseModel):
+    query: str
+    collection_a: str
+    collection_b: str
+    answer_a: str
+    answer_b: str
+
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -123,7 +131,7 @@ async def _stream(
     # 2. Rerank
     # ------------------------------------------------------------------
     t1 = time.perf_counter()
-    ranked = rerank(query, candidates, collection_name, top_k=5)
+    ranked = rerank(query, candidates, collection_name, top_k=8)
     logger.info("[LATENCY] rerank: %.0fms | results=%d", (time.perf_counter() - t1) * 1000, len(ranked))
 
     # ------------------------------------------------------------------
@@ -151,8 +159,10 @@ async def _stream(
 
     system_prompt = (
         "You are a financial analyst assistant. Answer the user's question using ONLY\n"
-        "the provided excerpts from the SEC filing. If the answer is not in the excerpts,\n"
-        "say so explicitly. Always cite which section your answer comes from.\n\n"
+        "the provided excerpts from the SEC filing. Always cite which section your answer\n"
+        "comes from. If the relevant information is only partially present, summarize what\n"
+        "is available and briefly note what is missing. Use markdown formatting: bold key\n"
+        "numbers, use bullet points for lists, and use tables for structured comparisons.\n\n"
         f"Filing: {company} {filing_type} {year}\n"
         f"Excerpts:\n{context}"
     )
@@ -218,6 +228,48 @@ def collections_endpoint() -> dict:
 async def query_endpoint(request: QueryRequest) -> StreamingResponse:
     return StreamingResponse(
         _stream(request.query, request.collection_name, request.session_id),
+        media_type="text/event-stream",
+    )
+
+
+async def _stream_synthesis(req: CompareRequest) -> AsyncGenerator[str, None]:
+    company_a = _parse_collection(req.collection_a)[0]
+    company_b = _parse_collection(req.collection_b)[0]
+
+    system_prompt = (
+        "You are a financial analyst. Given the same question asked of two companies and "
+        "their answers extracted from SEC filings, write a concise 2-3 sentence comparative "
+        "analysis highlighting key similarities and differences. Use specific numbers when "
+        "available. Be direct. Use markdown bold for key figures."
+    )
+    user_msg = (
+        f"Question: {req.query}\n\n"
+        f"**{company_a}:**\n{req.answer_a}\n\n"
+        f"**{company_b}:**\n{req.answer_b}"
+    )
+
+    stream = await _openai.chat.completions.create(
+        model=LLM_MODEL,
+        messages=[
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_msg},
+        ],
+        stream=True,
+    )
+
+    async for chunk in stream:
+        content = chunk.choices[0].delta.content
+        if content is None:
+            continue
+        yield _sse({"type": "token", "content": content})
+
+    yield _sse({"type": "done"})
+
+
+@app.post("/compare")
+async def compare_endpoint(req: CompareRequest) -> StreamingResponse:
+    return StreamingResponse(
+        _stream_synthesis(req),
         media_type="text/event-stream",
     )
 
