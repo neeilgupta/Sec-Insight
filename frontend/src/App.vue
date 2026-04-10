@@ -49,16 +49,31 @@ function handleHighlightSource(index: number) {
 <template>
   <div class="app">
     <header class="app-header">
-      <span class="logo">SEC Insight</span>
-      <span class="subtitle">Financial filing Q&amp;A</span>
-      <button class="mode-toggle" @click="mode = mode === 'chat' ? 'compare' : 'chat'">
-        {{ mode === 'chat' ? 'Compare' : '← Chat' }}
-      </button>
+      <div class="logo-group">
+        <span class="logo-mark">▸</span>
+        <span class="logo">SEC<span class="logo-accent">insight</span></span>
+        <span class="logo-tag">Financial Filing Intelligence</span>
+      </div>
+      <nav class="header-nav">
+        <button
+          class="mode-btn"
+          :class="{ active: mode === 'chat' }"
+          @click="mode = 'chat'"
+        >
+          Chat
+        </button>
+        <button
+          class="mode-btn"
+          :class="{ active: mode === 'compare' }"
+          @click="mode = 'compare'"
+        >
+          Compare
+        </button>
+      </nav>
     </header>
 
     <template v-if="mode === 'chat'">
       <TickerInput :is-streaming="isStreaming" @submit="handleSubmit" />
-
       <div class="main">
         <ChatWindow
           ref="chatWindow"
@@ -181,42 +196,89 @@ body {
 
 .app-header {
   display: flex;
-  align-items: baseline;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 20px;
+  height: 52px;
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--bg-surface);
+  flex-shrink: 0;
+}
+
+.logo-group {
+  display: flex;
+  align-items: center;
   gap: 10px;
-  padding: 10px 16px;
-  border-bottom: 1px solid #e5e7eb;
+}
+
+.logo-mark {
+  font-size: 18px;
+  color: var(--amber);
+  font-family: var(--font-mono);
+  line-height: 1;
 }
 
 .logo {
-  font-size: 16px;
-  font-weight: 700;
-  color: #6366f1;
+  font-family: var(--font-display);
+  font-size: 17px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: var(--text-primary);
+  text-transform: uppercase;
+  line-height: 1;
 }
 
-.subtitle {
-  font-size: 13px;
-  color: #9ca3af;
+.logo-accent {
+  color: var(--amber);
 }
 
-.mode-toggle {
-  margin-left: auto;
-  padding: 5px 12px;
-  background: transparent;
-  border: 1px solid #d1d5db;
-  border-radius: 6px;
+.logo-tag {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-muted);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding-left: 12px;
+  border-left: 1px solid var(--border);
+  margin-left: 2px;
+}
+
+.header-nav {
+  display: flex;
+  gap: 2px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 3px;
+}
+
+.mode-btn {
+  padding: 5px 16px;
+  border: none;
+  border-radius: 5px;
+  font-family: var(--font-body);
   font-size: 13px;
-  color: #6b7280;
+  font-weight: 500;
   cursor: pointer;
+  background: transparent;
+  color: var(--text-muted);
+  transition: all 0.15s ease;
 }
 
-.mode-toggle:hover {
-  border-color: #6366f1;
-  color: #6366f1;
+.mode-btn:hover {
+  color: var(--text-secondary);
+}
+
+.mode-btn.active {
+  background: var(--amber);
+  color: #07090D;
+  font-weight: 600;
 }
 
 .main {
   flex: 1;
   display: flex;
   overflow: hidden;
+  min-height: 0;
 }
 </style>
