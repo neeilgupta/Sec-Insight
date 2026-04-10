@@ -9,7 +9,7 @@ const rendered = computed(() => marked(props.content))
 
 <template>
   <div class="streaming">
-    <div class="bubble assistant markdown-body" v-html="rendered" /><span class="cursor" />
+    <div class="bubble markdown-body" v-html="rendered" /><span class="cursor" />
   </div>
 </template>
 
@@ -17,32 +17,38 @@ const rendered = computed(() => marked(props.content))
 .streaming {
   display: flex;
   justify-content: flex-start;
-  padding: 4px 16px;
   align-items: flex-end;
+  padding: 6px 20px;
 }
 
 .bubble {
-  max-width: 72%;
-  padding: 10px 14px;
-  border-radius: 12px;
-  background: #f3f4f6;
+  max-width: 80%;
+  padding: 12px 16px;
+  border-radius: 4px 16px 16px 16px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-left: 2px solid var(--amber-dim);
   font-size: 14px;
-  line-height: 1.6;
+  line-height: 1.65;
+  color: var(--text-primary);
   word-break: break-word;
 }
 
 .cursor {
   display: inline-block;
   width: 2px;
-  height: 1em;
-  background: #6366f1;
-  margin-left: 2px;
+  height: 16px;
+  background: var(--amber);
+  margin-left: 3px;
+  border-radius: 1px;
   vertical-align: text-bottom;
-  animation: blink 0.9s step-end infinite;
+  animation: blink 0.85s step-end infinite;
+  box-shadow: 0 0 6px var(--amber-glow);
+  flex-shrink: 0;
 }
 
 @keyframes blink {
   0%, 100% { opacity: 1; }
-  50%       { opacity: 0; }
+  50% { opacity: 0; }
 }
 </style>
