@@ -122,13 +122,13 @@ function handleKeydown(e: KeyboardEvent) {
 
 <template>
   <div class="comparison-view">
-    <!-- Company selectors -->
+    <!-- Company selectors + query bar in 3-column layout -->
     <div class="selectors">
-      <div class="selector-group">
-        <label class="selector-label">Company A</label>
+      <div class="selector-group indigo-group">
+        <span class="selector-badge indigo-badge">A</span>
         <select
           v-model="collectionA"
-          class="collection-select indigo"
+          class="collection-select"
           :disabled="isLoadingCollections || isEitherStreaming"
         >
           <option v-if="isLoadingCollections" value="" disabled>Loading…</option>
@@ -139,11 +139,26 @@ function handleKeydown(e: KeyboardEvent) {
         </select>
       </div>
 
-      <div class="selector-group">
-        <label class="selector-label">Company B</label>
+      <div class="query-bar">
+        <textarea
+          v-model="queryText"
+          class="query-field"
+          placeholder="Ask the same question about both companies…"
+          rows="1"
+          :disabled="isEitherStreaming || isSynthesizing"
+          @keydown="handleKeydown"
+        />
+        <button class="submit-btn" :disabled="!canSubmit" @click="handleSubmit">
+          <span v-if="isEitherStreaming || isSynthesizing" class="btn-spinner" />
+          <span v-else>Compare ↵</span>
+        </button>
+      </div>
+
+      <div class="selector-group emerald-group">
+        <span class="selector-badge emerald-badge">B</span>
         <select
           v-model="collectionB"
-          class="collection-select emerald"
+          class="collection-select"
           :disabled="isLoadingCollections || isEitherStreaming"
         >
           <option v-if="isLoadingCollections" value="" disabled>Loading…</option>
@@ -153,49 +168,47 @@ function handleKeydown(e: KeyboardEvent) {
           </option>
         </select>
       </div>
-    </div>
-
-    <!-- Shared query input -->
-    <div class="query-bar">
-      <textarea
-        v-model="queryText"
-        class="query-field"
-        placeholder="Ask the same question about both companies…"
-        rows="2"
-        :disabled="isEitherStreaming || isSynthesizing"
-        @keydown="handleKeydown"
-      />
-      <button class="submit-btn" :disabled="!canSubmit" @click="handleSubmit">
-        {{ isEitherStreaming ? '…' : isSynthesizing ? 'Comparing…' : 'Ask' }}
-      </button>
     </div>
 
     <!-- Side-by-side response columns -->
     <div class="columns response-columns">
       <!-- Column A -->
-      <div class="column">
-        <div v-if="isLoadingCollections" class="col-empty">Loading filings…</div>
-        <div v-else-if="!sseA.streamingContent.value && !completedA" class="col-empty">
-          Ask a question to compare responses.
+      <div class="column indigo-column">
+        <div class="column-header indigo-header">
+          <span class="col-label">{{ collectionA ? collectionA.split('_')[0] : 'Company A' }}</span>
+          <span class="col-filing" v-if="collectionA">{{ collectionA.split('_').slice(1).join(' · ') }}</span>
         </div>
-        <StreamingResponse v-else-if="sseA.isStreaming.value" :content="sseA.streamingContent.value" />
-        <div v-else class="response-bubble markdown-body" v-html="renderedA" />
+        <div class="column-body">
+          <div v-if="!sseA.streamingContent.value && !completedA" class="col-empty">
+            Select a company and ask a question.
+          </div>
+          <StreamingResponse v-else-if="sseA.isStreaming.value" :content="sseA.streamingContent.value" />
+          <div v-else class="response-text markdown-body" v-html="renderedA" />
+        </div>
       </div>
 
       <!-- Column B -->
-      <div class="column">
-        <div v-if="isLoadingCollections" class="col-empty">Loading filings…</div>
-        <div v-else-if="!sseB.streamingContent.value && !completedB" class="col-empty">
-          Ask a question to compare responses.
+      <div class="column emerald-column">
+        <div class="column-header emerald-header">
+          <span class="col-label">{{ collectionB ? collectionB.split('_')[0] : 'Company B' }}</span>
+          <span class="col-filing" v-if="collectionB">{{ collectionB.split('_').slice(1).join(' · ') }}</span>
         </div>
-        <StreamingResponse v-else-if="sseB.isStreaming.value" :content="sseB.streamingContent.value" />
-        <div v-else class="response-bubble markdown-body" v-html="renderedB" />
+        <div class="column-body">
+          <div v-if="!sseB.streamingContent.value && !completedB" class="col-empty">
+            Select a company and ask a question.
+          </div>
+          <StreamingResponse v-else-if="sseB.isStreaming.value" :content="sseB.streamingContent.value" />
+          <div v-else class="response-text markdown-body" v-html="renderedB" />
+        </div>
       </div>
     </div>
 
-    <!-- Comparison synthesis panel -->
+    <!-- AI synthesis panel -->
     <div v-if="synthesisText || isSynthesizing" class="synthesis-panel">
-      <div class="synthesis-label">Comparison Summary</div>
+      <div class="synthesis-header">
+        <span class="synthesis-icon">⟡</span>
+        <span class="synthesis-title">AI Comparison Summary</span>
+      </div>
       <div v-if="isSynthesizing" class="synthesis-body">
         <StreamingResponse :content="synthesisStreaming" />
       </div>
@@ -225,102 +238,144 @@ function handleKeydown(e: KeyboardEvent) {
   flex-direction: column;
   overflow: hidden;
   min-height: 0;
+  background: var(--bg-base);
 }
 
-/* Selectors row */
+/* Selectors row — 3-column: A selector | query bar | B selector */
 .selectors {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 280px 1fr 280px;
   gap: 1px;
-  background: #e5e7eb;
-  border-bottom: 1px solid #e5e7eb;
+  background: var(--border-subtle);
+  border-bottom: 1px solid var(--border-subtle);
+  flex-shrink: 0;
 }
 
 .selector-group {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 10px 16px;
-  background: #fff;
+  padding: 10px 14px;
+  background: var(--bg-surface);
 }
 
-.selector-label {
-  font-size: 12px;
-  font-weight: 600;
-  color: #6b7280;
-  white-space: nowrap;
+.selector-badge {
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 800;
+  width: 24px;
+  height: 24px;
+  border-radius: 5px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.indigo-badge {
+  background: var(--indigo-soft);
+  border: 1px solid var(--indigo);
+  color: var(--indigo);
+}
+
+.emerald-badge {
+  background: var(--emerald-soft);
+  border: 1px solid var(--emerald);
+  color: var(--emerald);
 }
 
 .collection-select {
   flex: 1;
-  padding: 6px 10px;
-  border: 1px solid #d1d5db;
+  padding: 6px 8px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
   border-radius: 6px;
-  font-size: 14px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-primary);
+  appearance: none;
+  -webkit-appearance: none;
+  cursor: pointer;
 }
 
-.collection-select:focus {
-  outline: none;
-}
+.collection-select option { background: var(--bg-elevated); }
+.collection-select:focus { outline: none; }
+.collection-select:disabled { opacity: 0.4; cursor: not-allowed; }
 
-.collection-select.indigo:focus {
-  border-color: #6366f1;
-  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.15);
-}
+.indigo-group .collection-select:focus { border-color: var(--indigo); }
+.emerald-group .collection-select:focus { border-color: var(--emerald); }
 
-.collection-select.emerald:focus {
-  border-color: #10b981;
-  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.15);
-}
-
-/* Query bar */
+/* Query bar (center column) */
 .query-bar {
   display: flex;
   gap: 8px;
-  align-items: flex-end;
-  padding: 10px 16px;
-  border-bottom: 1px solid #e5e7eb;
-  background: #fff;
+  align-items: center;
+  padding: 10px 14px;
+  background: var(--bg-surface);
 }
 
 .query-field {
   flex: 1;
-  padding: 8px 10px;
-  border: 1px solid #d1d5db;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
   border-radius: 6px;
-  font-size: 14px;
+  padding: 7px 10px;
+  font-family: var(--font-body);
+  font-size: 13px;
+  color: var(--text-primary);
   resize: none;
-  font-family: inherit;
+  line-height: 1.4;
 }
 
-.query-field:focus {
-  outline: none;
-  border-color: #6366f1;
-  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.15);
-}
+.query-field::placeholder { color: var(--text-muted); }
+.query-field:focus { outline: none; border-color: var(--amber); }
+.query-field:disabled { opacity: 0.5; }
 
 .submit-btn {
-  padding: 8px 20px;
-  background: #6366f1;
-  color: #fff;
+  flex-shrink: 0;
+  padding: 6px 16px;
+  background: var(--amber);
+  color: #07090D;
   border: none;
   border-radius: 6px;
-  font-size: 14px;
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 600;
   cursor: pointer;
   white-space: nowrap;
+  min-width: 90px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
 }
 
-.submit-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
+.submit-btn:hover:not(:disabled) {
+  background: #FFB830;
+  box-shadow: 0 0 12px var(--amber-glow);
 }
+
+.submit-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+
+.btn-spinner {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border: 2px solid rgba(7, 9, 13, 0.3);
+  border-top-color: #07090D;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
 
 /* Two-column grid */
 .columns {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 1px;
-  background: #e5e7eb;
+  background: var(--border-subtle);
 }
 
 .response-columns {
@@ -330,100 +385,119 @@ function handleKeydown(e: KeyboardEvent) {
 }
 
 .source-columns {
-  height: 260px;
+  height: 220px;
   flex-shrink: 0;
 }
 
 .column {
-  background: #fff;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--bg-base);
+}
+
+.column-header {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 8px 14px;
+  border-bottom: 2px solid var(--border-subtle);
+  flex-shrink: 0;
+}
+
+.indigo-header { border-bottom-color: var(--indigo); }
+.emerald-header { border-bottom-color: var(--emerald); }
+
+.col-label {
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+.indigo-column .col-label { color: var(--indigo); }
+.emerald-column .col-label { color: var(--emerald); }
+
+.col-filing {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-muted);
+  letter-spacing: 0.04em;
+}
+
+.column-body {
+  flex: 1;
   overflow-y: auto;
   padding: 12px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
 }
 
 .col-empty {
-  padding: 24px 16px;
-  color: #9ca3af;
-  font-size: 13px;
+  padding: 24px 0;
+  color: var(--text-muted);
+  font-size: 12px;
   text-align: center;
 }
 
-.response-bubble {
-  padding: 10px 14px;
-  border-radius: 12px;
-  background: #f3f4f6;
-  font-size: 14px;
-  line-height: 1.6;
-  word-break: break-word;
+.response-text {
+  font-size: 13px;
+  line-height: 1.65;
+  color: var(--text-secondary);
 }
 
 /* Synthesis panel */
 .synthesis-panel {
-  border-top: 1px solid #e5e7eb;
-  border-bottom: 1px solid #e5e7eb;
-  background: #fafafa;
+  border-top: 1px solid var(--border-subtle);
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--bg-surface);
   flex-shrink: 0;
 }
 
-.synthesis-label {
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
+.synthesis-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px 6px;
+}
+
+.synthesis-icon {
+  color: var(--amber);
+  font-size: 14px;
+}
+
+.synthesis-title {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: #6366f1;
-  padding: 8px 16px 4px;
+  color: var(--amber);
 }
 
 .synthesis-body {
   padding: 0 16px 12px;
   font-size: 13px;
   line-height: 1.65;
-  color: #374151;
+  color: var(--text-secondary);
 }
 
-/* Markdown styles (scoped to .markdown-body) */
+/* Markdown in comparison columns (scoped deep) */
 .markdown-body :deep(p) { margin: 0 0 8px; }
 .markdown-body :deep(p:last-child) { margin-bottom: 0; }
-.markdown-body :deep(strong) { font-weight: 600; }
-.markdown-body :deep(em) { font-style: italic; }
-.markdown-body :deep(ul),
-.markdown-body :deep(ol) { padding-left: 20px; margin: 6px 0; }
+.markdown-body :deep(strong) { font-weight: 600; color: var(--text-primary); }
+.markdown-body :deep(ul), .markdown-body :deep(ol) { padding-left: 18px; margin: 6px 0; }
 .markdown-body :deep(li) { margin: 2px 0; }
-.markdown-body :deep(h1),
-.markdown-body :deep(h2),
-.markdown-body :deep(h3) { font-weight: 600; margin: 10px 0 4px; }
-.markdown-body :deep(h1) { font-size: 1.1em; }
-.markdown-body :deep(h2) { font-size: 1em; }
-.markdown-body :deep(h3) { font-size: 0.95em; }
-.markdown-body :deep(table) {
-  border-collapse: collapse;
-  width: 100%;
-  margin: 8px 0;
-  font-size: 13px;
-}
-.markdown-body :deep(th),
-.markdown-body :deep(td) {
-  border: 1px solid #d1d5db;
-  padding: 5px 10px;
-  text-align: left;
-}
-.markdown-body :deep(th) { background: #f3f4f6; font-weight: 600; }
-.markdown-body :deep(code) {
-  background: #f3f4f6;
-  padding: 1px 4px;
-  border-radius: 3px;
-  font-family: monospace;
-  font-size: 0.9em;
-}
+.markdown-body :deep(h1), .markdown-body :deep(h2), .markdown-body :deep(h3) { font-weight: 600; margin: 10px 0 4px; color: var(--text-primary); }
+.markdown-body :deep(table) { border-collapse: collapse; width: 100%; margin: 8px 0; font-size: 12px; }
+.markdown-body :deep(th), .markdown-body :deep(td) { border: 1px solid var(--border); padding: 5px 8px; }
+.markdown-body :deep(th) { background: var(--bg-elevated); color: var(--text-primary); font-family: var(--font-mono); font-size: 10px; text-transform: uppercase; }
+.markdown-body :deep(td) { color: var(--text-secondary); }
+.markdown-body :deep(code) { background: var(--bg-elevated); border: 1px solid var(--border); padding: 1px 4px; border-radius: 3px; font-family: var(--font-mono); font-size: 0.88em; color: var(--amber); }
 
-/* Responsive — stack on mobile */
-@media (max-width: 640px) {
-  .selectors,
-  .columns {
-    grid-template-columns: 1fr;
-  }
-
-  .source-columns {
-    height: auto;
-  }
+@media (max-width: 900px) {
+  .selectors { grid-template-columns: 1fr; }
+  .columns { grid-template-columns: 1fr; }
+  .source-columns { height: auto; }
 }
 </style>
