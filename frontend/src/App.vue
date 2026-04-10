@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import type { Message, SourceChunk } from './types'
+import type { Message } from './types'
 import { useSSE } from './composables/useSSE'
 import TickerInput from './components/TickerInput.vue'
 import ChatWindow from './components/ChatWindow.vue'

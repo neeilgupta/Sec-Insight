@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { marked } from 'marked'
+import DOMPurify from 'dompurify'
 import { useSSE } from '../composables/useSSE'
 import StreamingResponse from './StreamingResponse.vue'
 import ComparisonSourcePanel from './ComparisonSourcePanel.vue'
@@ -32,9 +33,9 @@ const canSubmit = computed(
   () => queryText.value.trim() && collectionA.value && collectionB.value && !isEitherStreaming.value && !isSynthesizing.value,
 )
 
-const renderedA = computed(() => marked(completedA.value))
-const renderedB = computed(() => marked(completedB.value))
-const renderedSynthesis = computed(() => marked(synthesisText.value))
+const renderedA = computed(() => DOMPurify.sanitize(marked.parse(completedA.value) as string))
+const renderedB = computed(() => DOMPurify.sanitize(marked.parse(completedB.value) as string))
+const renderedSynthesis = computed(() => DOMPurify.sanitize(marked.parse(synthesisText.value) as string))
 
 onMounted(async () => {
   try {

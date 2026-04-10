@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { marked } from 'marked'
+import DOMPurify from 'dompurify'
 import type { SourceChunk } from '../types'
 
 const props = defineProps<{
@@ -13,7 +14,7 @@ const emit = defineEmits<{
   highlightSource: [index: number]
 }>()
 
-const rendered = computed(() => marked(props.content))
+const rendered = computed(() => DOMPurify.sanitize(marked.parse(props.content) as string))
 </script>
 
 <template>

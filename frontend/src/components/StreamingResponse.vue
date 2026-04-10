@@ -1,15 +1,18 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { marked } from 'marked'
+import DOMPurify from 'dompurify'
 
 const props = defineProps<{ content: string }>()
 
-const rendered = computed(() => marked(props.content))
+const rendered = computed(() => DOMPurify.sanitize(marked.parse(props.content) as string))
 </script>
 
 <template>
   <div class="streaming">
-    <div class="bubble markdown-body" v-html="rendered" /><span class="cursor" />
+    <div class="bubble">
+      <span class="markdown-body" v-html="rendered" /><span class="cursor" />
+    </div>
   </div>
 </template>
 

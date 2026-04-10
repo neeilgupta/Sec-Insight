@@ -19,9 +19,9 @@ watch(
 )
 
 function scoreColor(score: number): string {
-  if (score > 5) return '#16a34a'
-  if (score > 0) return '#ca8a04'
-  return '#9ca3af'
+  if (score > 5) return '#22C55E'
+  if (score > 0) return '#F0A020'
+  return '#3D4F63'
 }
 </script>
 
