@@ -34,6 +34,7 @@ from backend.retrieval.reranker import rerank
 load_dotenv()
 
 from backend.api.session import session_manager  # noqa: E402
+from backend.api.structured import router as structured_router  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # Module-level singletons
@@ -61,6 +62,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.include_router(structured_router)
 
 # ---------------------------------------------------------------------------
 # Request model
