@@ -1,0 +1,105 @@
+{
+  "summary": {
+    "naive": {
+      "avg_accuracy": 5.0,
+      "avg_faithfulness": 5.0,
+      "avg_completeness": 5.0,
+      "avg_latency_secs": 1.15,
+      "avg_context_chars": 2259
+    },
+    "hybrid": {
+      "avg_accuracy": 5.0,
+      "avg_faithfulness": 5.0,
+      "avg_completeness": 5.0,
+      "avg_latency_secs": 1.02,
+      "avg_context_chars": 2259
+    },
+    "longctx": {
+      "avg_accuracy": 5.0,
+      "avg_faithfulness": 3.0,
+      "avg_completeness": 5.0,
+      "avg_latency_secs": 0.83,
+      "avg_context_chars": 2244
+    }
+  },
+  "per_question": [
+    {
+      "id": "q001",
+      "config": "naive",
+      "category": "numeric",
+      "retrieval_ms": 510,
+      "llm_secs": 0.77,
+      "total_secs": 1.28,
+      "context_chars": 2259,
+      "accuracy": 5,
+      "faithfulness": 5,
+      "completeness": 5,
+      "reasoning": "The system's answer accurately matches the expected answer and is fully grounded in the source context, addressing the question completely."
+    },
+    {
+      "id": "q001",
+      "config": "hybrid",
+      "category": "numeric",
+      "retrieval_ms": 307,
+      "llm_secs": 0.72,
+      "total_secs": 1.02,
+      "context_chars": 2259,
+      "accuracy": 5,
+      "faithfulness": 5,
+      "completeness": 5,
+      "reasoning": "The system answer accurately states Apple's total net sales for fiscal year 2024 as $391.0 billion, which is grounded in the source context and addresses the question fully."
+    },
+    {
+      "id": "q001",
+      "config": "longctx",
+      "category": "numeric",
+      "retrieval_ms": 5,
+      "llm_secs": 0.9,
+      "total_secs": 0.9,
+      "context_chars": 2244,
+      "accuracy": 5,
+      "faithfulness": 5,
+      "completeness": 5,
+      "reasoning": "The system answer accurately reflects the expected answer and is fully supported by the source context, addressing the question completely."
+    },
+    {
+      "id": "q002",
+      "config": "naive",
+      "category": "numeric",
+      "retrieval_ms": 200,
+      "llm_secs": 0.82,
+      "total_secs": 1.02,
+      "context_chars": 2259,
+      "accuracy": 5,
+      "faithfulness": 5,
+      "completeness": 5,
+      "reasoning": "The system answer is accurate, faithful to the source, and fully addresses the question by providing the exact gross margin percentage for fiscal 2024."
+    },
+    {
+      "id": "q002",
+      "config": "hybrid",
+      "category": "numeric",
+      "retrieval_ms": 236,
+      "llm_secs": 0.79,
+      "total_secs": 1.02,
+      "context_chars": 2259,
+      "accuracy": 5,
+      "faithfulness": 5,
+      "completeness": 5,
+      "reasoning": "The system answer exactly matches the expected answer and every claim is supported by the source context, fully addressing the question."
+    },
+    {
+      "id": "q002",
+      "config": "longctx",
+      "category": "numeric",
+      "retrieval_ms": 5,
+      "llm_secs": 0.76,
+      "total_secs": 0.76,
+      "context_chars": 2244,
+      "accuracy": 5,
+      "faithfulness": 1,
+      "completeness": 5,
+      "reasoning": "The expected answer's figure matches, but the source context does not mention Apple's gross margin percentage, making the system answer unsupported by provided text."
+    }
+  ]
+}
