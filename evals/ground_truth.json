@@ -1,0 +1,182 @@
+[
+  {
+    "id": "q001",
+    "ticker": "AAPL",
+    "collection": "AAPL_10-K_2024-09-28",
+    "question": "What was Apple's total net sales in fiscal year 2024?",
+    "expected_answer": "$391.0 billion",
+    "expected_source_section": "Net Sales",
+    "category": "numeric"
+  },
+  {
+    "id": "q002",
+    "ticker": "AAPL",
+    "collection": "AAPL_10-K_2024-09-28",
+    "question": "What was Apple's gross margin percentage in fiscal 2024?",
+    "expected_answer": "46.2%",
+    "expected_source_section": "Gross Margin",
+    "category": "numeric"
+  },
+  {
+    "id": "q003",
+    "ticker": "AAPL",
+    "collection": "AAPL_10-K_2024-09-28",
+    "question": "How much did Apple return to shareholders through share repurchases in fiscal 2024?",
+    "expected_answer": "Approximately $94.9 billion in share repurchases plus $15.2 billion in dividends, totaling $110.0 billion returned to shareholders.",
+    "expected_source_section": "Liquidity and Capital Resources",
+    "category": "numeric"
+  },
+  {
+    "id": "q004",
+    "ticker": "AAPL",
+    "collection": "AAPL_10-K_2024-09-28",
+    "question": "What was Apple's iPhone net sales in fiscal 2024?",
+    "expected_answer": "$201.0 billion",
+    "expected_source_section": "Net Sales",
+    "category": "numeric"
+  },
+  {
+    "id": "q005",
+    "ticker": "MSFT",
+    "collection": "MSFT_10-K_2025-07-30",
+    "question": "What was Microsoft's total revenue in fiscal year 2025?",
+    "expected_answer": "$281.7 billion",
+    "expected_source_section": "Revenue",
+    "category": "numeric"
+  },
+  {
+    "id": "q006",
+    "ticker": "MSFT",
+    "collection": "MSFT_10-K_2025-07-30",
+    "question": "By how much did Microsoft's total revenue grow from fiscal 2024 to fiscal 2025?",
+    "expected_answer": "Revenue increased $36.6 billion or 15%, from $245.1 billion in 2024 to $281.7 billion in 2025.",
+    "expected_source_section": "Revenue",
+    "category": "table"
+  },
+  {
+    "id": "q007",
+    "ticker": "NVDA",
+    "collection": "NVDA_10-K_2026-02-25",
+    "question": "What was NVIDIA's total revenue for fiscal year 2026?",
+    "expected_answer": "$215.9 billion",
+    "expected_source_section": "Revenue",
+    "category": "numeric"
+  },
+  {
+    "id": "q008",
+    "ticker": "NVDA",
+    "collection": "NVDA_10-K_2026-02-25",
+    "question": "By what percentage did NVIDIA's revenue grow year-over-year in fiscal 2026?",
+    "expected_answer": "65% year-over-year growth",
+    "expected_source_section": "Revenue",
+    "category": "numeric"
+  },
+  {
+    "id": "q009",
+    "ticker": "GOOGL",
+    "collection": "GOOGL_10-K_2026-02-05",
+    "question": "What was Alphabet's total revenue in 2025?",
+    "expected_answer": "$402.8 billion",
+    "expected_source_section": "Revenues",
+    "category": "numeric"
+  },
+  {
+    "id": "q010",
+    "ticker": "GOOGL",
+    "collection": "GOOGL_10-K_2026-02-05",
+    "question": "What was Alphabet's income from operations in 2025?",
+    "expected_answer": "$129.0 billion",
+    "expected_source_section": "Income from operations",
+    "category": "numeric"
+  },
+  {
+    "id": "q011",
+    "ticker": "META",
+    "collection": "META_10-K_2026-01-29",
+    "question": "What was Meta's total revenue in 2025?",
+    "expected_answer": "$200.97 billion",
+    "expected_source_section": "Revenue",
+    "category": "numeric"
+  },
+  {
+    "id": "q012",
+    "ticker": "META",
+    "collection": "META_10-K_2026-01-29",
+    "question": "What was Meta's advertising revenue in 2025 and how did it compare to 2024?",
+    "expected_answer": "$196.2 billion in 2025, up 22% from $160.6 billion in 2024.",
+    "expected_source_section": "Revenue",
+    "category": "table"
+  },
+  {
+    "id": "q013",
+    "ticker": "META",
+    "collection": "META_10-K_2026-01-29",
+    "question": "What was Meta's total research and development expense in 2025?",
+    "expected_answer": "$57.4 billion",
+    "expected_source_section": "Research and development",
+    "category": "table"
+  },
+  {
+    "id": "q014",
+    "ticker": "AAPL",
+    "collection": "AAPL_10-K_2024-09-28",
+    "question": "What are the main supply chain risk factors Apple discloses?",
+    "expected_answer": "Apple relies on single-source or limited-source suppliers for some components, and concentrates manufacturing in Asia, creating exposure to geopolitical disruption, trade restrictions, and natural disasters.",
+    "expected_source_section": "Risk Factors",
+    "category": "prose"
+  },
+  {
+    "id": "q015",
+    "ticker": "NVDA",
+    "collection": "NVDA_10-K_2026-02-25",
+    "question": "What risks does NVIDIA cite around export controls and geopolitical restrictions?",
+    "expected_answer": "NVIDIA faces export licensing requirements restricting sales of advanced chips to certain countries, particularly China, which could materially impact revenue from those markets.",
+    "expected_source_section": "Risk Factors",
+    "category": "prose"
+  },
+  {
+    "id": "q016",
+    "ticker": "MSFT",
+    "collection": "MSFT_10-K_2025-07-30",
+    "question": "How did Microsoft's Intelligent Cloud segment revenue compare to Productivity and Business Processes in fiscal 2025?",
+    "expected_answer": "Intelligent Cloud revenue was higher, driven by Azure growth, while Productivity and Business Processes increased $14.0 billion (13%) driven by Microsoft 365 Commercial.",
+    "expected_source_section": "Segment Results",
+    "category": "cross-section"
+  },
+  {
+    "id": "q017",
+    "ticker": "AAPL",
+    "collection": "AAPL_10-K_2024-09-28",
+    "question": "How does Apple's Services gross margin compare to its Products gross margin in fiscal 2024?",
+    "expected_answer": "Services gross margin was approximately 74% while Products gross margin was approximately 37%, reflecting the higher-margin nature of the Services segment.",
+    "expected_source_section": "Gross Margin",
+    "category": "cross-section"
+  },
+  {
+    "id": "q018",
+    "ticker": "GOOGL",
+    "collection": "GOOGL_10-K_2026-02-05",
+    "question": "What was Alphabet's total cost of revenues as a percentage of revenues in 2025?",
+    "expected_answer": "40% in 2025, down from 42% in 2024.",
+    "expected_source_section": "Cost of revenues",
+    "category": "cross-section"
+  },
+  {
+    "id": "q019",
+    "ticker": "AAPL",
+    "collection": "AAPL_10-K_2024-09-28",
+    "question": "Compare Apple's revenue growth rate to its gross margin improvement from 2023 to 2024.",
+    "expected_answer": "Revenue grew 2% (from $383B to $391B) while gross margin percentage improved from 44.1% to 46.2%, meaning margin expanded faster than topline growth due to Services mix shift.",
+    "expected_source_section": "Net Sales and Gross Margin",
+    "category": "comparison"
+  },
+  {
+    "id": "q020",
+    "ticker": "META",
+    "collection": "META_10-K_2026-01-29",
+    "question": "Compare Meta's Family of Apps revenue to Reality Labs revenue in 2025. Which is larger and by how much?",
+    "expected_answer": "Family of Apps revenue was $198.8 billion versus Reality Labs $2.2 billion — Family of Apps is roughly 90x larger.",
+    "expected_source_section": "Revenue",
+    "category": "comparison"
+  }
+]
