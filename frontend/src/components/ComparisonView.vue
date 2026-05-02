@@ -6,6 +6,8 @@ import { useSSE } from '../composables/useSSE'
 import StreamingResponse from './StreamingResponse.vue'
 import ComparisonSourcePanel from './ComparisonSourcePanel.vue'
 
+const API_BASE = import.meta.env.VITE_API_BASE ?? ''
+
 const collections = ref<string[]>([])
 const isLoadingCollections = ref(true)
 const collectionA = ref('')
@@ -39,7 +41,7 @@ const renderedSynthesis = computed(() => DOMPurify.sanitize(marked.parse(synthes
 
 onMounted(async () => {
   try {
-    const resp = await fetch('/api/collections')
+    const resp = await fetch(`${API_BASE}/api/collections`)
     const data = await resp.json()
     collections.value = data.collections
     if (collections.value.length >= 1) collectionA.value = collections.value[0]
@@ -59,7 +61,7 @@ async function streamSynthesis(query: string, answerA: string, answerB: string) 
   synthesisStreaming.value = ''
   synthesisText.value = ''
 
-  const response = await fetch('/api/compare', {
+  const response = await fetch(`${API_BASE}/api/compare`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({

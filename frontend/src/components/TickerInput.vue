@@ -13,7 +13,8 @@ const isLoading = ref(true)
 
 onMounted(async () => {
   try {
-    const resp = await fetch('/api/collections')
+    const base = import.meta.env.VITE_API_BASE ?? ''
+    const resp = await fetch(`${base}/api/collections`)
     const data = await resp.json()
     collections.value = data.collections
     if (collections.value.length > 0) {

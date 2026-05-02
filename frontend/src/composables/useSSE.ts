@@ -18,7 +18,8 @@ export function useSSE() {
     const controller = new AbortController()
 
     try {
-      const response = await fetch('/api/query', {
+      const base = import.meta.env.VITE_API_BASE ?? ''
+      const response = await fetch(`${base}/api/query`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
