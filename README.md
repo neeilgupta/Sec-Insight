@@ -2,7 +2,7 @@
 
 > Conversational querying of SEC 10-K/10-Q filings with hybrid search, cross-encoder reranking, and source highlighting.
 
-**[Live Demo](https://sec-insight.vercel.app)** · **[Demo Video](#)** · 16 companies indexed
+16 companies indexed
 
 ## What it does
 
