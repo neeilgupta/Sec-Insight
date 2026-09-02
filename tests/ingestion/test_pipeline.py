@@ -1,6 +1,7 @@
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
+from backend.ingestion.edgar_fetcher import FilingRef
 from backend.ingestion.pipeline import ingest, _to_dicts
 
 
@@ -53,6 +54,14 @@ def test_to_dicts_handles_missing_metadata():
 
 MOCK_URL = "https://www.sec.gov/Archives/edgar/data/320193/000032019324000123/aapl-20240928.htm"
 MOCK_DATE = "2024-09-28"
+MOCK_FILING = FilingRef(
+    url=MOCK_URL,
+    filing_date=MOCK_DATE,
+    report_date="2024-09-28",
+    accession="0000320193-24-000123",
+    form_type="10-K",
+    index=0,
+)
 
 
 @pytest.mark.asyncio
@@ -65,7 +74,7 @@ async def test_ingest_returns_collection_name():
          patch("backend.ingestion.pipeline.chunk_elements") as mock_chunk, \
          patch("backend.ingestion.pipeline.index_chunks") as mock_index:
 
-        mock_fetch.return_value = (MOCK_URL, MOCK_DATE)
+        mock_fetch.return_value = MOCK_FILING
         mock_parse.return_value = [mock_element]
         mock_chunk.return_value = mock_chunks
         mock_index.return_value = "AAPL_10-K_2024-09-28"
@@ -85,7 +94,7 @@ async def test_ingest_passes_correct_args_between_stages():
          patch("backend.ingestion.pipeline.chunk_elements") as mock_chunk, \
          patch("backend.ingestion.pipeline.index_chunks") as mock_index:
 
-        mock_fetch.return_value = (MOCK_URL, MOCK_DATE)
+        mock_fetch.return_value = MOCK_FILING
         mock_parse.return_value = [mock_element]
         mock_chunk.return_value = mock_chunks
         mock_index.return_value = "AAPL_10-K_2024-09-28"
@@ -102,6 +111,26 @@ async def test_ingest_passes_correct_args_between_stages():
     assert mock_index.call_args[0][0] == mock_chunks
     assert mock_index.call_args[0][1] == "AAPL"
     assert mock_index.call_args[0][3] == MOCK_DATE
+
+
+@pytest.mark.asyncio
+async def test_ingest_forwards_index_to_fetcher():
+    mock_element = _make_element("NarrativeText", "Apple revenue $391B")
+    mock_chunks = [MagicMock()]
+
+    with patch("backend.ingestion.pipeline.get_filing_info", new_callable=AsyncMock) as mock_fetch, \
+         patch("backend.ingestion.pipeline.parse_filing", new_callable=AsyncMock) as mock_parse, \
+         patch("backend.ingestion.pipeline.chunk_elements") as mock_chunk, \
+         patch("backend.ingestion.pipeline.index_chunks") as mock_index:
+
+        mock_fetch.return_value = MOCK_FILING
+        mock_parse.return_value = [mock_element]
+        mock_chunk.return_value = mock_chunks
+        mock_index.return_value = "AAPL_10-K_2024-09-28"
+
+        await ingest("AAPL", "10-K", index=1)
+
+    assert mock_fetch.call_args.kwargs["index"] == 1
 
 
 @pytest.mark.asyncio

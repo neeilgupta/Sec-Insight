@@ -9,14 +9,15 @@ Usage (CLI):
     python -m backend.ingestion.pipeline AAPL 10-K
     python -m backend.ingestion.pipeline MSFT 10-K
     python -m backend.ingestion.pipeline TSLA 10-Q
+    python -m backend.ingestion.pipeline AAPL 10-K --index 1
 """
 
 from __future__ import annotations
 
+import argparse
 import asyncio
 import logging
 import os
-import sys
 import time
 
 from dotenv import load_dotenv
@@ -59,12 +60,13 @@ def _to_dicts(elements: list) -> list[dict]:
 # Public API
 # ---------------------------------------------------------------------------
 
-async def ingest(ticker: str, form_type: FormType) -> str:
+async def ingest(ticker: str, form_type: FormType, index: int = 0) -> str:
     """Fetch, parse, chunk, and index a filing into Chroma.
 
     Args:
         ticker: Stock ticker symbol, e.g. "AAPL". Case-insensitive.
         form_type: "10-K" (annual) or "10-Q" (quarterly).
+        index: 0 = most recent filing, 1 = next most recent, etc.
 
     Returns:
         Chroma collection name, e.g. "AAPL_10-K_2024-09-28".
@@ -80,13 +82,16 @@ async def ingest(ticker: str, form_type: FormType) -> str:
     # Stage 1 — Fetch filing URL + date from EDGAR
     t0 = time.perf_counter()
     logger.info("[1/4] Fetching %s %s from EDGAR...", ticker, form_type)
-    url, filing_date = await get_filing_info(ticker, form_type, user_agent)
-    logger.info("      ✓  url=%s  date=%s  (%.1fs)", url, filing_date, time.perf_counter() - t0)
+    filing = await get_filing_info(ticker, form_type, user_agent, index=index)
+    logger.info(
+        "      ✓  url=%s  filed=%s period=%s  (%.1fs)",
+        filing.url, filing.filing_date, filing.report_date or "?", time.perf_counter() - t0,
+    )
 
     # Stage 2 — Download and parse HTML filing
     t0 = time.perf_counter()
     logger.info("[2/4] Parsing filing HTML (this may take ~30s for large filings)...")
-    elements = await parse_filing(url, user_agent)
+    elements = await parse_filing(filing.url, user_agent)
     element_dicts = _to_dicts(elements)
     logger.info("      ✓  %d elements parsed  (%.1fs)", len(element_dicts), time.perf_counter() - t0)
 
@@ -97,14 +102,14 @@ async def ingest(ticker: str, form_type: FormType) -> str:
         element_dicts,
         ticker=ticker,
         filing_type=form_type,
-        filing_date=filing_date,
+        filing_date=filing.filing_date,
     )
     logger.info("      ✓  %d chunks  (%.1fs)", len(chunks), time.perf_counter() - t0)
 
     # Stage 4 — Embed and upsert to Chroma
     t0 = time.perf_counter()
     logger.info("[4/4] Indexing to Chroma (OpenAI embeddings, ~1s per 100 chunks)...")
-    collection_name = index_chunks(chunks, ticker, form_type, filing_date)
+    collection_name = index_chunks(chunks, ticker, form_type, filing.filing_date)
     logger.info("      ✓  collection=%s  (%.1fs)", collection_name, time.perf_counter() - t0)
 
     return collection_name
@@ -115,14 +120,19 @@ async def ingest(ticker: str, form_type: FormType) -> str:
 # ---------------------------------------------------------------------------
 
 if __name__ == "__main__":
-    if len(sys.argv) < 2:
-        print("Usage: python -m backend.ingestion.pipeline <TICKER> [10-K|10-Q]")
-        print("  e.g. python -m backend.ingestion.pipeline AAPL 10-K")
-        sys.exit(1)
+    _parser = argparse.ArgumentParser(description="Ingest a SEC filing into Chroma.")
+    _parser.add_argument("ticker", help="Stock ticker symbol, e.g. AAPL")
+    _parser.add_argument(
+        "form_type", nargs="?", default="10-K", choices=["10-K", "10-Q"],
+        help="SEC form type (default: 10-K)",
+    )
+    _parser.add_argument(
+        "--index", type=int, default=0,
+        help="Recency index: 0 = most recent filing, 1 = next most recent, etc (default: 0)",
+    )
+    _args = _parser.parse_args()
 
-    _ticker = sys.argv[1]
-    _form = sys.argv[2] if len(sys.argv) > 2 else "10-K"
+    collection = asyncio.run(ingest(_args.ticker, _args.form_type, index=_args.index))
 
-    collection = asyncio.run(ingest(_ticker, _form))
     print(f"\nDone. Collection: {collection}")
-    print(f"Now query it in the UI: ticker={_ticker}, filing={_form}")
+    print(f"Now query it in the UI: ticker={_args.ticker.upper()}, filing={_args.form_type}")
