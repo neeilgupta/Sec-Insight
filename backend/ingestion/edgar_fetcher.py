@@ -1,14 +1,16 @@
 """
-SEC EDGAR fetcher — resolves a ticker to a CIK and returns the URL of the
-primary document for the most recent 10-K or 10-Q filing.
+SEC EDGAR fetcher — resolves a ticker to a CIK and returns filing metadata
+for a 10-K or 10-Q filing at a given recency index (0 = most recent).
 """
 
+from dataclasses import dataclass
 from typing import Literal
 
 import httpx
 
 SEC_TICKERS_URL = "https://www.sec.gov/files/company_tickers.json"
 SEC_SUBMISSIONS_URL = "https://data.sec.gov/submissions/CIK{cik}.json"
+SEC_SUBMISSIONS_SHARD_URL = "https://data.sec.gov/submissions/{name}"
 SEC_ARCHIVES_URL = (
     "https://www.sec.gov/Archives/edgar/data/{cik}/{accession}/{doc}"
 )
@@ -16,78 +18,64 @@ SEC_ARCHIVES_URL = (
 FormType = Literal["10-K", "10-Q"]
 
 
-async def get_filing_url(
-    ticker: str,
-    form_type: FormType,
-    user_agent: str,
-) -> str:
-    """Return the URL of the primary document for the most recent filing.
+@dataclass(frozen=True)
+class FilingRef:
+    url: str           # absolute archive URL of the primary document
+    filing_date: str   # ISO, when it was filed with the SEC   ("2024-11-01")
+    report_date: str   # ISO, fiscal period end                ("2024-09-28"); "" if absent
+    accession: str     # "0000320193-24-000123", hyphens intact
+    form_type: str
+    index: int         # position this came from, echoed back for logging
 
-    Args:
-        ticker: Stock ticker symbol, e.g. "AAPL".
-        form_type: SEC form type — "10-K" (annual) or "10-Q" (quarterly).
-        user_agent: Value for the SEC-required User-Agent header,
-                    e.g. "Jane Doe jane@example.com".
 
-    Returns:
-        Absolute URL to the primary .htm document on SEC EDGAR.
+def _matches_from_block(block: dict, form_type: str) -> list[tuple[str, str, str, str]]:
+    """Return (accession, primary_doc, filing_date, report_date) for each matching form,
+    preserving the block's newest-first order."""
+    forms = block.get("form", [])
+    accessions = block.get("accessionNumber", [])
+    primary_docs = block.get("primaryDocument", [])
+    filing_dates = block.get("filingDate", [])
+    report_dates = block.get("reportDate", [])
 
-    Raises:
-        ValueError: If the ticker is not found or no matching filings exist.
-        httpx.HTTPStatusError: On non-2xx responses from the SEC API.
-    """
-    headers = {"User-Agent": user_agent, "Accept-Encoding": "gzip, deflate"}
-
-    async with httpx.AsyncClient(headers=headers, follow_redirects=True, timeout=30.0) as client:
-        cik = await _get_cik(ticker.upper(), client)
-        cik_padded = str(cik).zfill(10)
-
-        submissions_url = SEC_SUBMISSIONS_URL.format(cik=cik_padded)
-        resp = await client.get(submissions_url)
-        resp.raise_for_status()
-        data = resp.json()
-
-        recent = data.get("filings", {}).get("recent", {})
-        forms = recent.get("form", [])
-        accessions = recent.get("accessionNumber", [])
-        primary_docs = recent.get("primaryDocument", [])
-
-        for form, accession, doc in zip(forms, accessions, primary_docs):
-            if form == form_type:
-                accession_clean = accession.replace("-", "")
-                return SEC_ARCHIVES_URL.format(
-                    cik=cik_padded,
-                    accession=accession_clean,
-                    doc=doc,
-                )
-
-        raise ValueError(
-            f"No {form_type} filings found for '{ticker}' in EDGAR submissions."
-        )
+    matches = []
+    for i, form in enumerate(forms):
+        if form != form_type:
+            continue
+        report_date = report_dates[i] if i < len(report_dates) else ""
+        matches.append((
+            accessions[i],
+            primary_docs[i],
+            filing_dates[i],
+            report_date or "",
+        ))
+    return matches
 
 
 async def get_filing_info(
     ticker: str,
     form_type: FormType,
     user_agent: str,
-) -> tuple[str, str]:
-    """Return (url, filing_date) for the most recent filing of form_type.
-
-    Like get_filing_url() but also returns the ISO filing date
-    (e.g. "2024-09-28") required by chunk_elements() and index_chunks().
+    index: int = 0,
+) -> FilingRef:
+    """Return filing metadata for form_type at the given recency index.
 
     Args:
         ticker: Stock ticker symbol, e.g. "AAPL".
         form_type: SEC form type — "10-K" or "10-Q".
         user_agent: Value for the SEC-required User-Agent header.
+        index: 0 = most recent, 1 = next most recent, etc.
 
     Returns:
-        Tuple of (absolute_url, filing_date) where filing_date is ISO "YYYY-MM-DD".
+        A FilingRef for the requested filing.
 
     Raises:
-        ValueError: If the ticker is not found or no matching filings exist.
+        ValueError: If index is negative, the ticker is not found, or fewer
+            than index + 1 matching filings exist across all submission shards.
         httpx.HTTPStatusError: On non-2xx responses from the SEC API.
     """
+    if index < 0:
+        raise ValueError(f"index must be >= 0 (0 = most recent), got {index}.")
+
     headers = {"User-Agent": user_agent, "Accept-Encoding": "gzip, deflate"}
 
     async with httpx.AsyncClient(headers=headers, follow_redirects=True, timeout=30.0) as client:
@@ -100,23 +88,40 @@ async def get_filing_info(
         data = resp.json()
 
         recent = data.get("filings", {}).get("recent", {})
-        forms = recent.get("form", [])
-        accessions = recent.get("accessionNumber", [])
-        primary_docs = recent.get("primaryDocument", [])
-        filing_dates = recent.get("filingDate", [])
+        matches = _matches_from_block(recent, form_type)
 
-        for form, accession, doc, date in zip(forms, accessions, primary_docs, filing_dates):
-            if form == form_type:
-                accession_clean = accession.replace("-", "")
-                url = SEC_ARCHIVES_URL.format(
-                    cik=cik_padded,
-                    accession=accession_clean,
-                    doc=doc,
-                )
-                return url, date
+        if len(matches) <= index:
+            shards = sorted(
+                data.get("filings", {}).get("files", []),
+                key=lambda s: s["filingTo"],
+                reverse=True,
+            )
+            for shard in shards:
+                if len(matches) > index:
+                    break
+                shard_url = SEC_SUBMISSIONS_SHARD_URL.format(name=shard["name"])
+                shard_resp = await client.get(shard_url)
+                shard_resp.raise_for_status()
+                matches.extend(_matches_from_block(shard_resp.json(), form_type))
 
-        raise ValueError(
-            f"No {form_type} filings found for '{ticker}' in EDGAR submissions."
+        if len(matches) <= index:
+            valid = f"valid: 0-{len(matches) - 1}" if matches else "none available"
+            raise ValueError(
+                f"Only {len(matches)} {form_type} filings found for '{ticker}' "
+                f"across all submission shards; index {index} is out of range "
+                f"({valid})."
+            )
+
+        accession, doc, filing_date, report_date = matches[index]
+        accession_clean = accession.replace("-", "")
+        url = SEC_ARCHIVES_URL.format(cik=cik_padded, accession=accession_clean, doc=doc)
+        return FilingRef(
+            url=url,
+            filing_date=filing_date,
+            report_date=report_date,
+            accession=accession,
+            form_type=form_type,
+            index=index,
         )
 
 
